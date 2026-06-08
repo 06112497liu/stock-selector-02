@@ -1,4 +1,4 @@
-/* 个股 K 线页:拉 /api/kline -> 转 ECharts option -> 重绘蜡烛图 + 成交量副图。
+/* 个股 K 线页:拉 /api/kline -> 转 ECharts option -> 重绘蜡烛图 + 成交量副图 + 均线。
    纯原生 JS,依赖全局 echarts(由 echarts.min.js 提供)。 */
 (function () {
   'use strict';
@@ -11,8 +11,11 @@
   var MARKET = root.getAttribute('data-market') || 'us';
   var CODE = root.getAttribute('data-code') || '';
 
-  var UP = '#dc2626';   // 阳线:涨红
-  var DOWN = '#16a34a'; // 阴线:跌绿
+  var UP = '#dc2626';
+  var DOWN = '#16a34a';
+  var MA5_COLOR = '#f59e0b';
+  var MA10_COLOR = '#3b82f6';
+  var MA20_COLOR = '#a855f7';
 
   var chart = echarts.init(root);
   var currentPeriod = '1d';
@@ -33,6 +36,22 @@
     });
   }
 
+  function calcMA(points, period) {
+    var result = [];
+    for (var i = 0; i < points.length; i++) {
+      if (i < period - 1) {
+        result.push(null);
+      } else {
+        var sum = 0;
+        for (var j = i - period + 1; j <= i; j++) {
+          sum += points[j].close;
+        }
+        result.push(Number((sum / period).toFixed(2)));
+      }
+    }
+    return result;
+  }
+
   // points: [{time, open, high, low, close, volume}, ...]
   function render(points) {
     if (!points || points.length === 0) {
@@ -41,7 +60,7 @@
     }
 
     var times = [];
-    var candles = [];   // ECharts 蜡烛图固定顺序 [open, close, low, high]
+    var candles = [];
     var volumes = [];
 
     for (var i = 0; i < points.length; i++) {
@@ -54,17 +73,26 @@
       });
     }
 
+    var ma5 = calcMA(points, 5);
+    var ma10 = calcMA(points, 10);
+    var ma20 = calcMA(points, 20);
+
     chart.clear();
     chart.setOption({
       animation: false,
+      legend: {
+        data: ['K线', 'MA5', 'MA10', 'MA20', '成交量'],
+        top: 0,
+        left: 'center'
+      },
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'cross' }
       },
       axisPointer: { link: [{ xAxisIndex: 'all' }] },
       grid: [
-        { left: 56, right: 24, top: 24, height: '60%' },
-        { left: 56, right: 24, top: '74%', height: '16%' }
+        { left: 56, right: 24, top: 48, height: '55%' },
+        { left: 56, right: 24, top: '72%', height: '16%' }
       ],
       xAxis: [
         {
@@ -98,6 +126,33 @@
             color: UP, color0: DOWN,
             borderColor: UP, borderColor0: DOWN
           }
+        },
+        {
+          name: 'MA5', type: 'line',
+          xAxisIndex: 0, yAxisIndex: 0,
+          data: ma5,
+          smooth: false,
+          symbol: 'none',
+          lineStyle: { color: MA5_COLOR, width: 1 },
+          connectNulls: false
+        },
+        {
+          name: 'MA10', type: 'line',
+          xAxisIndex: 0, yAxisIndex: 0,
+          data: ma10,
+          smooth: false,
+          symbol: 'none',
+          lineStyle: { color: MA10_COLOR, width: 1 },
+          connectNulls: false
+        },
+        {
+          name: 'MA20', type: 'line',
+          xAxisIndex: 0, yAxisIndex: 0,
+          data: ma20,
+          smooth: false,
+          symbol: 'none',
+          lineStyle: { color: MA20_COLOR, width: 1 },
+          connectNulls: false
         },
         {
           name: '成交量', type: 'bar',
